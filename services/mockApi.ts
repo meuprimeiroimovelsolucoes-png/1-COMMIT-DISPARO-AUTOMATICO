@@ -61,6 +61,18 @@ export const mockApi = {
     });
   },
 
+  createAutomation: async (newRule: Omit<AutomationRule, 'id' | 'isActive'>): Promise<AutomationRule> => {
+    return new Promise((resolve) => {
+        const rule: AutomationRule = {
+            ...newRule,
+            id: `auto_${Date.now()}`,
+            isActive: true
+        };
+        INITIAL_AUTOMATIONS.push(rule);
+        setTimeout(() => resolve(rule), 500);
+    });
+  },
+
   toggleAutomation: async (id: string): Promise<AutomationRule | null> => {
     return new Promise((resolve) => {
       const rule = INITIAL_AUTOMATIONS.find(a => a.id === id);

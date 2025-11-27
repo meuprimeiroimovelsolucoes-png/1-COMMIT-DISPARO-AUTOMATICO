@@ -65,7 +65,7 @@ export const EditLeadModal: React.FC<EditLeadModalProps> = ({ lead, activities, 
 
   return (
     <div className="fixed inset-0 bg-gray-900/40 backdrop-blur-sm flex items-center justify-center z-[60] p-4 animate-fade-in">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col md:flex-row max-h-[90vh]">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl overflow-hidden flex flex-col md:flex-row max-h-[90vh]">
         
         {/* Lado Esquerdo: Formulário */}
         <div className="flex-1 flex flex-col min-w-[320px]">
@@ -142,7 +142,7 @@ export const EditLeadModal: React.FC<EditLeadModalProps> = ({ lead, activities, 
 
         {/* Lado Direito: Histórico (Timeline) */}
         {lead && (
-            <div className="w-full md:w-80 bg-gray-50 border-l border-gray-100 flex flex-col">
+            <div className="w-full md:w-96 bg-gray-50 border-l border-gray-100 flex flex-col">
                 <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-100/50">
                     <h3 className="text-sm font-bold text-gray-600 uppercase tracking-wider">Histórico de Atividades</h3>
                     <button onClick={onClose} className="hidden md:block p-1 hover:bg-gray-200 rounded-full text-gray-400 transition-colors">

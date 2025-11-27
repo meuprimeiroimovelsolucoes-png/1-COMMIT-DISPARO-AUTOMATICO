@@ -32,6 +32,7 @@ import { LeadTable } from './components/LeadTable';
 import { StatsCard } from './components/StatsCard';
 import { AutomationView } from './components/AutomationView';
 import { EditLeadModal } from './components/EditLeadModal';
+import { CreateAutomationModal } from './components/CreateAutomationModal';
 
 enum ViewMode {
   DASHBOARD = 'dashboard',
@@ -50,9 +51,12 @@ const App: React.FC = () => {
   const [notification, setNotification] = useState<{message: string, type: 'success' | 'info'} | null>(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-  // Estados da Oficina de Edição (Modal)
+  // Estados da Oficina de Edição (Modal Leads)
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingLead, setEditingLead] = useState<Lead | null>(null);
+
+  // Estados da Fábrica de Robôs (Modal Automação)
+  const [isAutomationModalOpen, setIsAutomationModalOpen] = useState(false);
 
   // O Controle Remoto para o arquivo
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -109,6 +113,13 @@ const App: React.FC = () => {
     }
   };
 
+  const handleCreateAutomation = async (newRule: Omit<AutomationRule, 'id' | 'isActive'>) => {
+    const createdRule = await mockApi.createAutomation(newRule);
+    setAutomations(prev => [...prev, createdRule]);
+    setIsAutomationModalOpen(false);
+    showToast('Novo robô criado e ativado com sucesso!', 'success');
+  };
+
   const handleStatusChange = async (leadId: string, newStatus: FunnelStatus) => {
     // 1. Snapshot do estado anterior para o histórico
     const oldLead = leads.find(l => l.id === leadId);
@@ -128,14 +139,14 @@ const App: React.FC = () => {
     }
     
     if (newStatus === 'docs_pending') {
-       const rule = automations.find(a => a.id === 'auto_2');
+       const rule = automations.find(a => a.id === 'auto_2' || a.triggerName.includes('Mudança de Status'));
        if (rule && rule.isActive) {
-         showToast('Automação Disparada: Solicitando Documentos via WhatsApp', 'success');
+         showToast(`Automação Disparada: ${rule.actionName}`, 'success');
          // Registra Disparo de Automação
          await handleNewActivity(
             leadId,
             'WHATSAPP_SENT',
-            'Robô enviou mensagem solicitando documentos (RG/CPF).'
+            `Robô executou: ${rule.actionName}`
          );
        }
     }
@@ -180,19 +191,20 @@ const App: React.FC = () => {
       showToast(`${res.added} leads importados e validados com sucesso!`, 'success');
       
       // Registrar atividades para cada novo lead importado
-      const welcomeRule = automations.find(a => a.id === 'auto_1');
+      // Procura por regras de "Novo Lead" ou "user-plus"
+      const welcomeRules = automations.filter(a => a.isActive && (a.id === 'auto_1' || a.icon === 'user-plus'));
       
       res.newLeads.forEach(async (lead) => {
           await handleNewActivity(lead.id, 'LEAD_IMPORTED', 'Lead importado via planilha (.csv/.xlsx).');
           
-          if (welcomeRule && welcomeRule.isActive) {
-             await handleNewActivity(lead.id, 'WHATSAPP_SENT', 'Robô enviou Boas-vindas automaticamente.');
-          }
+          welcomeRules.forEach(async (rule) => {
+             await handleNewActivity(lead.id, 'WHATSAPP_SENT', `Robô (${rule.triggerName}) enviou mensagem.`);
+          });
       });
 
-      if (welcomeRule && welcomeRule.isActive) {
+      if (welcomeRules.length > 0) {
         setTimeout(() => {
-          showToast('Automação Disparada: Boas-vindas enviadas para novos leads!', 'success');
+          showToast(`Automação Disparada: ${welcomeRules.length} regra(s) executada(s)!`, 'success');
         }, 1500);
       }
     }
@@ -238,8 +250,8 @@ const App: React.FC = () => {
       await handleNewActivity(newId, 'LEAD_IMPORTED', 'Novo lead cadastrado manualmente.');
 
       // Verifica automação de boas-vindas
-      const welcomeRule = automations.find(a => a.id === 'auto_1');
-      if (welcomeRule && welcomeRule.isActive) {
+      const welcomeRules = automations.filter(a => a.isActive && (a.id === 'auto_1' || a.icon === 'user-plus'));
+      if (welcomeRules.length > 0) {
         setTimeout(() => {
           showToast('Automação Disparada: Boas-vindas enviadas!', 'success');
           handleNewActivity(newId, 'WHATSAPP_SENT', 'Robô enviou Boas-vindas automaticamente.');
@@ -392,11 +404,11 @@ const App: React.FC = () => {
             {/* Botão de Novo Cadastro (+) */}
             <button 
               onClick={() => {
-                // Se for na tela de Automações, cria uma regra de exemplo (mock)
+                // Se for na tela de Automações, abre a Fábrica de Robôs
                 if (activeView === ViewMode.AUTOMATION) {
-                    showToast('Para criar automações reais, configure a API.', 'info');
+                    setIsAutomationModalOpen(true);
                 } else {
-                    // Se for Dashboard ou Leads, abre o modal de cadastro vazio
+                    // Se for Dashboard ou Leads, abre o modal de cadastro vazio (Pessoa)
                     handleOpenEditModal(null);
                 }
               }}
@@ -451,7 +463,7 @@ const App: React.FC = () => {
               leads={leads} 
               onSelectionChange={setSelectedLeadIds} 
               onDeleteLead={handleDeleteLead}
-              onEditLead={handleOpenEditModal} // Ligando o fio aqui!
+              onEditLead={handleOpenEditModal}
             />
           )}
 
@@ -463,7 +475,7 @@ const App: React.FC = () => {
         
         {/* Notification Toast */}
         {notification && (
-          <div className={`fixed bottom-8 right-8 flex items-center gap-4 px-6 py-4 rounded-2xl shadow-xl border transform transition-all duration-300 animate-bounce-in z-50
+          <div className={`fixed bottom-8 right-8 flex items-center gap-4 px-6 py-4 rounded-2xl shadow-xl border transform transition-all duration-300 animate-bounce-in z-[80]
             ${notification.type === 'success' ? 'bg-white border-green-100 ring-2 ring-green-500' : 'bg-white border-blue-100 ring-2 ring-blue-500'}
           `}>
             <div className={`p-2 rounded-full ${notification.type === 'success' ? 'bg-green-100 text-green-600' : 'bg-blue-100 text-blue-600'}`}>
@@ -534,13 +546,20 @@ const App: React.FC = () => {
           </div>
         )}
 
-        {/* Nossa Nova Oficina (Modal de Edição) + Histórico */}
+        {/* Modal: Oficina de Leads */}
         <EditLeadModal 
           lead={editingLead}
-          activities={activities} // Passando a rede de informações
+          activities={activities}
           isOpen={isEditModalOpen}
           onClose={() => setIsEditModalOpen(false)}
           onSave={handleSaveEdit}
+        />
+
+        {/* Modal: Fábrica de Robôs (Novo) */}
+        <CreateAutomationModal 
+          isOpen={isAutomationModalOpen}
+          onClose={() => setIsAutomationModalOpen(false)}
+          onSave={handleCreateAutomation}
         />
 
       </main>
