@@ -120,7 +120,25 @@ const App: React.FC = () => {
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const res = await mockApi.uploadLeads(e.target.files[0]);
+      // ADICIONANDO OS NOVOS LEADS NA LISTA
+      setLeads(prev => [...res.newLeads, ...prev]);
       showToast(`${res.added} leads importados e validados com sucesso!`, 'success');
+      
+      // Checar automação de Boas Vindas
+      const welcomeRule = automations.find(a => a.id === 'auto_1');
+      if (welcomeRule && welcomeRule.isActive) {
+        setTimeout(() => {
+          showToast('Automação Disparada: Boas-vindas enviadas para novos leads!', 'success');
+        }, 1500);
+      }
+    }
+  };
+
+  // Nova função para deletar leads
+  const handleDeleteLead = (id: string) => {
+    if (confirm('Tem certeza que deseja excluir este lead?')) {
+      setLeads(prev => prev.filter(l => l.id !== id));
+      showToast('Lead removido com sucesso.', 'info');
     }
   };
 
@@ -300,7 +318,7 @@ const App: React.FC = () => {
           )}
 
           {activeView === ViewMode.LEADS && (
-            <LeadTable leads={leads} onSelectionChange={setSelectedLeadIds} />
+            <LeadTable leads={leads} onSelectionChange={setSelectedLeadIds} onDeleteLead={handleDeleteLead} />
           )}
 
           {activeView === ViewMode.AUTOMATION && (

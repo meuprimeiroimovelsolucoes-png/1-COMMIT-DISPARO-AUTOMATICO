@@ -84,10 +84,18 @@ export const mockApi = {
     });
   },
 
-  uploadLeads: async (file: File): Promise<{ added: number }> => {
+  uploadLeads: async (file: File): Promise<{ added: number, newLeads: Lead[] }> => {
     return new Promise((resolve) => {
       console.log(`[BACKEND] Processing file ${file.name} for E.164 validation.`);
-      setTimeout(() => resolve({ added: 15 }), 1200);
+      
+      // Simular criação de novos leads a partir do arquivo
+      const newLeads: Lead[] = [
+        { id: `new_${Date.now()}_1`, name: 'Novo Cliente Planilha 1', whatsapp: '5511988887777', email: 'novo1@email.com', status: 'prospect', tags: ['Importado'], lastInteraction: new Date().toISOString(), createdAt: new Date().toISOString() },
+        { id: `new_${Date.now()}_2`, name: 'Novo Cliente Planilha 2', whatsapp: '5511988886666', email: 'novo2@email.com', status: 'prospect', tags: ['Importado'], lastInteraction: new Date().toISOString(), createdAt: new Date().toISOString() },
+        { id: `new_${Date.now()}_3`, name: 'Novo Cliente Planilha 3', whatsapp: '5511988885555', email: 'novo3@email.com', status: 'prospect', tags: ['Importado'], lastInteraction: new Date().toISOString(), createdAt: new Date().toISOString() },
+      ];
+
+      setTimeout(() => resolve({ added: newLeads.length, newLeads }), 1000);
     });
   }
 };

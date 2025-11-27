@@ -1,15 +1,21 @@
 import React, { useState } from 'react';
 import { Lead, FUNNEL_COLUMNS } from '../types';
-import { Search, Filter, MoreHorizontal } from 'lucide-react';
+import { Search, Filter, MoreHorizontal, Trash2, Edit, X } from 'lucide-react';
 
 interface LeadTableProps {
   leads: Lead[];
   onSelectionChange: (selectedIds: string[]) => void;
+  onDeleteLead?: (id: string) => void;
 }
 
-export const LeadTable: React.FC<LeadTableProps> = ({ leads, onSelectionChange }) => {
+export const LeadTable: React.FC<LeadTableProps> = ({ leads, onSelectionChange, onDeleteLead }) => {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [searchTerm, setSearchTerm] = useState('');
+  
+  // Estados para os menus e filtros
+  const [activeMenuLeadId, setActiveMenuLeadId] = useState<string | null>(null);
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<string>('all');
 
   const toggleSelect = (id: string) => {
     const newSelected = new Set(selectedIds);
@@ -42,13 +48,16 @@ export const LeadTable: React.FC<LeadTableProps> = ({ leads, onSelectionChange }
     ) : statusId;
   };
 
-  const filteredLeads = leads.filter(l => 
-    l.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    l.whatsapp.includes(searchTerm)
-  );
+  const filteredLeads = leads.filter(l => {
+    const matchesSearch = l.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                          l.whatsapp.includes(searchTerm);
+    const matchesFilter = statusFilter === 'all' || l.status === statusFilter;
+    
+    return matchesSearch && matchesFilter;
+  });
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+    <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-visible min-h-[400px]">
       {/* Table Toolbar */}
       <div className="p-4 border-b border-gray-100 flex flex-col sm:flex-row justify-between items-center gap-4">
         <div className="relative w-full sm:w-64">
@@ -61,11 +70,41 @@ export const LeadTable: React.FC<LeadTableProps> = ({ leads, onSelectionChange }
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
-        <div className="flex gap-2">
-          <button className="flex items-center gap-2 px-3 py-2 border border-gray-200 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-50">
+        <div className="relative">
+          <button 
+            onClick={() => setIsFilterOpen(!isFilterOpen)}
+            className={`flex items-center gap-2 px-3 py-2 border rounded-lg text-sm font-medium transition-colors ${isFilterOpen || statusFilter !== 'all' ? 'bg-blue-50 border-blue-200 text-blue-700' : 'border-gray-200 text-gray-600 hover:bg-gray-50'}`}
+          >
             <Filter className="w-4 h-4" />
-            Filtros
+            {statusFilter === 'all' ? 'Filtros' : 'Filtro Ativo'}
+            {(isFilterOpen || statusFilter !== 'all') && <div className="w-2 h-2 rounded-full bg-blue-500 ml-1"></div>}
           </button>
+
+          {/* Menu Dropdown de Filtros */}
+          {isFilterOpen && (
+            <div className="absolute right-0 top-full mt-2 w-56 bg-white rounded-xl shadow-xl border border-gray-100 z-20 p-2 animate-fade-in">
+              <div className="flex justify-between items-center px-2 py-1 mb-2 border-b border-gray-50">
+                 <span className="text-xs font-bold text-gray-400 uppercase">Filtrar por Status</span>
+                 <button onClick={() => setIsFilterOpen(false)}><X className="w-3 h-3 text-gray-400 hover:text-red-500"/></button>
+              </div>
+              <button 
+                onClick={() => { setStatusFilter('all'); setIsFilterOpen(false); }}
+                className={`w-full text-left px-3 py-2 rounded-lg text-sm mb-1 ${statusFilter === 'all' ? 'bg-blue-50 text-blue-700 font-bold' : 'hover:bg-gray-50 text-gray-600'}`}
+              >
+                Ver Todos
+              </button>
+              {FUNNEL_COLUMNS.map(col => (
+                <button 
+                  key={col.id}
+                  onClick={() => { setStatusFilter(col.id); setIsFilterOpen(false); }}
+                  className={`w-full text-left px-3 py-2 rounded-lg text-sm mb-1 flex items-center gap-2 ${statusFilter === col.id ? 'bg-blue-50 text-blue-700 font-bold' : 'hover:bg-gray-50 text-gray-600'}`}
+                >
+                  <div className={`w-2 h-2 rounded-full ${col.color.replace('border-', 'bg-').replace('400', '500')}`}></div>
+                  {col.title}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
@@ -119,16 +158,50 @@ export const LeadTable: React.FC<LeadTableProps> = ({ leads, onSelectionChange }
                 <td className="px-6 py-4 text-xs">
                   {new Date(lead.lastInteraction).toLocaleDateString()}
                 </td>
-                <td className="px-6 py-4 text-right">
-                  <button className="p-2 hover:bg-gray-100 rounded-full text-gray-400 hover:text-gray-600">
+                <td className="px-6 py-4 text-right relative">
+                  <button 
+                    onClick={() => setActiveMenuLeadId(activeMenuLeadId === lead.id ? null : lead.id)}
+                    className={`p-2 rounded-full transition-colors ${activeMenuLeadId === lead.id ? 'bg-blue-100 text-blue-600' : 'hover:bg-gray-100 text-gray-400 hover:text-gray-600'}`}
+                  >
                     <MoreHorizontal className="w-4 h-4" />
                   </button>
+
+                  {/* Menu de Ações (Editar/Excluir) */}
+                  {activeMenuLeadId === lead.id && (
+                    <>
+                      <div className="fixed inset-0 z-10 cursor-default" onClick={() => setActiveMenuLeadId(null)}></div>
+                      <div className="absolute right-8 top-8 w-40 bg-white rounded-xl shadow-xl border border-gray-100 z-20 overflow-hidden animate-bounce-in origin-top-right">
+                        <button className="w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2">
+                          <Edit className="w-4 h-4 text-gray-400" />
+                          Editar
+                        </button>
+                        <button 
+                            onClick={() => {
+                                if (onDeleteLead) onDeleteLead(lead.id);
+                                setActiveMenuLeadId(null);
+                            }}
+                            className="w-full text-left px-4 py-3 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2 border-t border-gray-50"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                          Excluir
+                        </button>
+                      </div>
+                    </>
+                  )}
                 </td>
               </tr>
             ))}
             {filteredLeads.length === 0 && (
                <tr>
-                 <td colSpan={6} className="text-center py-8 text-gray-400">Nenhum lead encontrado</td>
+                 <td colSpan={6} className="text-center py-12 text-gray-400">
+                    <div className="flex flex-col items-center gap-2">
+                        <Search className="w-8 h-8 opacity-20" />
+                        <p>Nenhum lead encontrado com este filtro.</p>
+                        {statusFilter !== 'all' && (
+                            <button onClick={() => setStatusFilter('all')} className="text-blue-500 font-bold hover:underline">Limpar Filtros</button>
+                        )}
+                    </div>
+                 </td>
                </tr>
             )}
           </tbody>
