@@ -1,54 +1,57 @@
 # 🏡 ImobCRM Auto
 
-Este é o sistema de CRM Imobiliário com Automação de WhatsApp. Ele foi preparado para ser simples, rápido e fácil de hospedar.
-
-## 🚀 Como colocar na Internet (Deploy)
-
-A maneira mais fácil e gratuita é usar a **Vercel** ou **Netlify**.
-
-### Opção 1: Vercel (Recomendado)
-
-1. Crie uma conta em [vercel.com](https://vercel.com).
-2. Instale o **Vercel CLI** no seu computador ou conecte sua conta do **GitHub**.
-3. Se usar o GitHub:
-   - Suba este código para um repositório.
-   - Na Vercel, clique em "Add New Project" e selecione o repositório.
-   - O sistema detectará automaticamente que é um projeto **Vite**.
-   - Clique em **Deploy**.
-
-### Opção 2: Netlify
-
-1. Crie uma conta em [netlify.com](https://www.netlify.com).
-2. Arraste a pasta `dist` (gerada após rodar o comando de build) para o painel da Netlify OU conecte ao GitHub.
+Sistema de CRM Imobiliário focado em automação de WhatsApp e gestão de leads simples.
 
 ---
 
-## 💻 Como rodar no seu computador
+## 🚀 Como colocar na Internet (Vercel)
 
-Se você baixou os arquivos, siga estes passos para testar:
+A tela que você está vendo pede um **Repositório Git**. Siga estes passos para criar um:
 
-1. **Instale as dependências:**
-   Abra o terminal na pasta do projeto e digite:
+### Passo 1: Preparar o Git (No seu computador)
+Se você baixou os arquivos para seu computador:
+1. Abra o terminal na pasta do projeto.
+2. Digite os comandos abaixo, um por um:
+   ```bash
+   git init
+   git add .
+   git commit -m "Primeira versão ImobCRM"
+   ```
+
+### Passo 2: Enviar para o GitHub
+1. Crie um repositório novo no site do [GitHub](https://github.com/new) (pode chamar de `imobcrm`).
+2. Copie o link do repositório (algo como `https://github.com/seu-usuario/imobcrm.git`).
+3. Volte ao terminal e cole:
+   ```bash
+   git branch -M main
+   git remote add origin SEU_LINK_DO_GITHUB_AQUI
+   git push -u origin main
+   ```
+
+### Passo 3: Conectar na Vercel
+1. Agora, nessa tela da Vercel que você mostrou ("Importar repositório Git"):
+2. Procure pelo nome `imobcrm` que você acabou de criar.
+3. Clique em **Import**.
+4. Nas configurações que aparecerem, apenas clique em **Deploy**. A Vercel detectará que é um projeto Vite automaticamente.
+
+---
+
+## 💻 Rodando Localmente
+
+Para testar no seu computador antes de enviar:
+
+1. **Instale:**
    ```bash
    npm install
    ```
 
-2. **Rode o projeto:**
+2. **Rode:**
    ```bash
    npm run dev
    ```
-   O site abrirá no seu navegador (geralmente em `http://localhost:5173`).
 
-3. **Gere a versão final (Build):**
-   Para criar a versão otimizada para internet:
-   ```bash
-   npm run build
-   ```
-   Isso criará uma pasta chamada `dist`.
+## 🛠 Arquivos de Configuração
 
-## 🛠 Tecnologias Usadas
-
-- **React**: Para criar as telas.
-- **Vite**: Para fazer o site carregar rápido.
-- **Tailwind CSS**: Para o visual bonito e limpo.
-- **Lucide Icons**: Ícones visuais e simples.
+- **.gitignore:** Impede que arquivos pesados (como `node_modules`) ou senhas subam para o GitHub.
+- **.env.example:** Modelo das variáveis que o sistema usa. Renomeie para `.env` se for usar localmente.
+- **vercel.json:** Garante que o site não quebre ao atualizar a página.
