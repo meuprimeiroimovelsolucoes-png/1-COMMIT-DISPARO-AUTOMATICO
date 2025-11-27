@@ -309,9 +309,9 @@ const App: React.FC = () => {
         <div className="p-6 border-b border-gray-100 flex justify-between items-center">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center text-white font-bold text-xl shadow-blue-200 shadow-lg">
-              I
+              P
             </div>
-            <span className="text-xl font-bold text-gray-800 tracking-tight">ImobCRM</span>
+            <span className="text-xl font-bold text-gray-800 tracking-tight">Power Remarketing</span>
           </div>
           <button 
             onClick={() => setIsMobileMenuOpen(false)}

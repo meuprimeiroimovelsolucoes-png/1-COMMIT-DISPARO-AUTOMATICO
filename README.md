@@ -1,4 +1,4 @@
-# 🏡 ImobCRM Auto
+# ⚡ Power Remarketing
 
 Sistema de CRM Imobiliário focado em automação de WhatsApp e gestão de leads simples.
 
@@ -15,12 +15,12 @@ Se você baixou os arquivos para seu computador:
    ```bash
    git init
    git add .
-   git commit -m "Primeira versão ImobCRM"
+   git commit -m "Primeira versão Power Remarketing"
    ```
 
 ### Passo 2: Enviar para o GitHub
-1. Crie um repositório novo no site do [GitHub](https://github.com/new) (pode chamar de `imobcrm`).
-2. Copie o link do repositório (algo como `https://github.com/seu-usuario/imobcrm.git`).
+1. Crie um repositório novo no site do [GitHub](https://github.com/new) (pode chamar de `power-remarketing`).
+2. Copie o link do repositório (algo como `https://github.com/seu-usuario/power-remarketing.git`).
 3. Volte ao terminal e cole:
    ```bash
    git branch -M main
@@ -30,7 +30,7 @@ Se você baixou os arquivos para seu computador:
 
 ### Passo 3: Conectar na Vercel
 1. Agora, nessa tela da Vercel que você mostrou ("Importar repositório Git"):
-2. Procure pelo nome `imobcrm` que você acabou de criar.
+2. Procure pelo nome `power-remarketing` que você acabou de criar.
 3. Clique em **Import**.
 4. Nas configurações que aparecerem, apenas clique em **Deploy**. A Vercel detectará que é um projeto Vite automaticamente.
 
