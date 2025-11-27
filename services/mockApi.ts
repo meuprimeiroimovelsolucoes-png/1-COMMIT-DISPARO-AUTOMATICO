@@ -1,4 +1,5 @@
-import { Lead, FunnelStatus, AutomationRule } from "../types";
+
+import { Lead, FunnelStatus, AutomationRule, Activity } from "../types";
 
 // Initial Mock Data
 const INITIAL_LEADS: Lead[] = [
@@ -39,6 +40,14 @@ const INITIAL_AUTOMATIONS: AutomationRule[] = [
   }
 ];
 
+// Dados Iniciais de Atividade (Para não começar vazio)
+let activities: Activity[] = [
+    { id: 'act_1', leadId: '1', type: 'LEAD_IMPORTED', message: 'Lead cadastrado via importação inicial.', timestamp: new Date(Date.now() - 100000).toISOString() },
+    { id: 'act_2', leadId: '1', type: 'WHATSAPP_SENT', message: 'Automação: Boas-vindas enviada.', timestamp: new Date(Date.now() - 90000).toISOString() },
+    { id: 'act_3', leadId: '2', type: 'STATUS_CHANGE', message: 'Status movido para Doc. Pendente.', timestamp: new Date(Date.now() - 86400000).toISOString() },
+    { id: 'act_4', leadId: '5', type: 'STATUS_CHANGE', message: 'Venda Fechada! Parabéns.', timestamp: new Date().toISOString() }
+];
+
 export const mockApi = {
   getLeads: async (): Promise<Lead[]> => {
     return new Promise((resolve) => {
@@ -70,10 +79,25 @@ export const mockApi = {
       const lead = INITIAL_LEADS.find(l => l.id === leadId);
       if (lead) {
         lead.status = newStatus;
-        // Mock Automation Trigger
-        console.log(`[BACKEND] Status changed to ${newStatus}. Triggering Celery task for WhatsApp...`);
       }
       setTimeout(() => resolve(lead as Lead), 300);
+    });
+  },
+
+  updateLeadData: async (updatedLead: Lead): Promise<Lead> => {
+    return new Promise((resolve) => {
+      const index = INITIAL_LEADS.findIndex(l => l.id === updatedLead.id);
+      if (index !== -1) {
+        INITIAL_LEADS[index] = updatedLead;
+      }
+      setTimeout(() => resolve(updatedLead), 400);
+    });
+  },
+
+  // Simula envio individual (usado no loop de massa)
+  sendSingleMessage: async (leadId: string, templateId: string): Promise<boolean> => {
+    return new Promise(resolve => {
+        setTimeout(() => resolve(true), 100);
     });
   },
 
@@ -94,8 +118,32 @@ export const mockApi = {
         { id: `new_${Date.now()}_2`, name: 'Novo Cliente Planilha 2', whatsapp: '5511988886666', email: 'novo2@email.com', status: 'prospect', tags: ['Importado'], lastInteraction: new Date().toISOString(), createdAt: new Date().toISOString() },
         { id: `new_${Date.now()}_3`, name: 'Novo Cliente Planilha 3', whatsapp: '5511988885555', email: 'novo3@email.com', status: 'prospect', tags: ['Importado'], lastInteraction: new Date().toISOString(), createdAt: new Date().toISOString() },
       ];
+      
+      // Adicionar aos dados iniciais para persistir na sessão
+      INITIAL_LEADS.push(...newLeads);
 
       setTimeout(() => resolve({ added: newLeads.length, newLeads }), 1000);
+    });
+  },
+
+  // --- NOVAS FUNÇÕES PARA O HISTÓRICO DE ATIVIDADES ---
+  
+  registerActivity: async (activity: Omit<Activity, 'id' | 'timestamp'>): Promise<Activity> => {
+    return new Promise(resolve => {
+        const newActivity: Activity = { 
+            ...activity, 
+            id: `act_${Date.now()}_${Math.random().toString(16).slice(2)}`,
+            timestamp: new Date().toISOString()
+        };
+        activities.push(newActivity);
+        setTimeout(() => resolve(newActivity), 100); 
+    });
+  },
+
+  getActivities: async (): Promise<Activity[]> => {
+    return new Promise(resolve => {
+        // Retorna ordenado do mais recente para o mais antigo
+        setTimeout(() => resolve(activities.slice().sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())), 150);
     });
   }
 };

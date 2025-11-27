@@ -6,9 +6,10 @@ interface LeadTableProps {
   leads: Lead[];
   onSelectionChange: (selectedIds: string[]) => void;
   onDeleteLead?: (id: string) => void;
+  onEditLead?: (lead: Lead) => void;
 }
 
-export const LeadTable: React.FC<LeadTableProps> = ({ leads, onSelectionChange, onDeleteLead }) => {
+export const LeadTable: React.FC<LeadTableProps> = ({ leads, onSelectionChange, onDeleteLead, onEditLead }) => {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [searchTerm, setSearchTerm] = useState('');
   
@@ -57,9 +58,9 @@ export const LeadTable: React.FC<LeadTableProps> = ({ leads, onSelectionChange, 
   });
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-visible min-h-[400px]">
+    <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-visible min-h-[500px] flex flex-col">
       {/* Table Toolbar */}
-      <div className="p-4 border-b border-gray-100 flex flex-col sm:flex-row justify-between items-center gap-4">
+      <div className="p-4 border-b border-gray-100 flex flex-col sm:flex-row justify-between items-center gap-4 z-20 relative">
         <div className="relative w-full sm:w-64">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
           <input 
@@ -82,7 +83,9 @@ export const LeadTable: React.FC<LeadTableProps> = ({ leads, onSelectionChange, 
 
           {/* Menu Dropdown de Filtros */}
           {isFilterOpen && (
-            <div className="absolute right-0 top-full mt-2 w-56 bg-white rounded-xl shadow-xl border border-gray-100 z-20 p-2 animate-fade-in">
+            <>
+            <div className="fixed inset-0 z-20" onClick={() => setIsFilterOpen(false)}></div>
+            <div className="absolute right-0 top-full mt-2 w-56 bg-white rounded-xl shadow-xl border border-gray-100 z-30 p-2 animate-fade-in">
               <div className="flex justify-between items-center px-2 py-1 mb-2 border-b border-gray-50">
                  <span className="text-xs font-bold text-gray-400 uppercase">Filtrar por Status</span>
                  <button onClick={() => setIsFilterOpen(false)}><X className="w-3 h-3 text-gray-400 hover:text-red-500"/></button>
@@ -104,11 +107,13 @@ export const LeadTable: React.FC<LeadTableProps> = ({ leads, onSelectionChange, 
                 </button>
               ))}
             </div>
+            </>
           )}
         </div>
       </div>
 
-      <div className="overflow-x-auto">
+      {/* Adicionei pb-32 para dar espaço extra no final da tabela para os menus não serem cortados */}
+      <div className="overflow-x-auto flex-1 pb-32">
         <table className="w-full text-left text-sm text-gray-600">
           <thead className="bg-gray-50 text-gray-700 font-medium">
             <tr>
@@ -170,8 +175,14 @@ export const LeadTable: React.FC<LeadTableProps> = ({ leads, onSelectionChange, 
                   {activeMenuLeadId === lead.id && (
                     <>
                       <div className="fixed inset-0 z-10 cursor-default" onClick={() => setActiveMenuLeadId(null)}></div>
-                      <div className="absolute right-8 top-8 w-40 bg-white rounded-xl shadow-xl border border-gray-100 z-20 overflow-hidden animate-bounce-in origin-top-right">
-                        <button className="w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2">
+                      <div className="absolute right-8 top-8 w-40 bg-white rounded-xl shadow-xl border border-gray-100 z-50 overflow-hidden animate-bounce-in origin-top-right">
+                        <button 
+                            onClick={() => {
+                                if (onEditLead) onEditLead(lead);
+                                setActiveMenuLeadId(null);
+                            }}
+                            className="w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                        >
                           <Edit className="w-4 h-4 text-gray-400" />
                           Editar
                         </button>

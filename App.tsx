@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   LayoutDashboard, 
   Users, 
@@ -10,7 +11,7 @@ import {
   Send,
   CheckCircle,
   X,
-  Menu // Importando ícone do Menu
+  Menu
 } from 'lucide-react';
 import { 
   BarChart, 
@@ -22,7 +23,7 @@ import {
   ResponsiveContainer 
 } from 'recharts';
 
-import { Lead, FunnelStatus, FUNNEL_COLUMNS, AutomationRule } from './types';
+import { Lead, FunnelStatus, FUNNEL_COLUMNS, AutomationRule, Activity, ActivityType } from './types';
 import { WHATSAPP_TEMPLATES } from './constants';
 import { mockApi } from './services/mockApi';
 
@@ -30,6 +31,7 @@ import { KanbanBoard } from './components/KanbanBoard';
 import { LeadTable } from './components/LeadTable';
 import { StatsCard } from './components/StatsCard';
 import { AutomationView } from './components/AutomationView';
+import { EditLeadModal } from './components/EditLeadModal';
 
 enum ViewMode {
   DASHBOARD = 'dashboard',
@@ -41,28 +43,46 @@ const App: React.FC = () => {
   const [activeView, setActiveView] = useState<ViewMode>(ViewMode.DASHBOARD);
   const [leads, setLeads] = useState<Lead[]>([]);
   const [automations, setAutomations] = useState<AutomationRule[]>([]);
+  const [activities, setActivities] = useState<Activity[]>([]); // Novo Estado Global de Atividades
   const [selectedLeadIds, setSelectedLeadIds] = useState<string[]>([]);
   const [showBulkModal, setShowBulkModal] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState(WHATSAPP_TEMPLATES[0].id);
   const [notification, setNotification] = useState<{message: string, type: 'success' | 'info'} | null>(null);
-  
-  // Novo estado para controlar o menu no celular
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
+  // Estados da Oficina de Edição (Modal)
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editingLead, setEditingLead] = useState<Lead | null>(null);
+
+  // O Controle Remoto para o arquivo
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   useEffect(() => {
-    // Load initial data
     mockApi.getLeads().then(setLeads);
     mockApi.getAutomations().then(setAutomations);
+    mockApi.getActivities().then(setActivities); // Carrega histórico inicial
   }, []);
 
-  // Show notification toast
   const showToast = (message: string, type: 'success' | 'info' = 'info') => {
     setNotification({ message, type });
     setTimeout(() => setNotification(null), 4000);
   };
 
+  // --- FUNÇÃO CENTRAL DE REGISTRO DE ATIVIDADES ---
+  const handleNewActivity = async (leadId: string, type: ActivityType, message: string) => {
+    try {
+        const newActivity = await mockApi.registerActivity({
+            leadId,
+            type,
+            message
+        });
+        setActivities(prev => [newActivity, ...prev]);
+    } catch (error) {
+        console.error("Falha ao registrar atividade", error);
+    }
+  };
+
   const handleToggleAutomation = async (id: string) => {
-    // 1. Optimistic Update (Update UI Immediately)
     setAutomations(prev => prev.map(a => {
       if (a.id === id) {
         return { ...a, isActive: !a.isActive };
@@ -71,10 +91,7 @@ const App: React.FC = () => {
     }));
 
     try {
-      // 2. API Call in background
       const updatedRule = await mockApi.toggleAutomation(id);
-      
-      // 3. Confirm with Toast
       if (updatedRule) {
         showToast(
           updatedRule.isActive ? 'Automação ativada com sucesso!' : 'Automação desligada.', 
@@ -82,7 +99,6 @@ const App: React.FC = () => {
         );
       }
     } catch (error) {
-      // Revert if error
       setAutomations(prev => prev.map(a => {
         if (a.id === id) {
           return { ...a, isActive: !a.isActive };
@@ -93,48 +109,99 @@ const App: React.FC = () => {
     }
   };
 
-  // Handle Drag & Drop Status Change (Kanban)
   const handleStatusChange = async (leadId: string, newStatus: FunnelStatus) => {
-    // Optimistic Update
+    // 1. Snapshot do estado anterior para o histórico
+    const oldLead = leads.find(l => l.id === leadId);
+    const oldStatusTitle = FUNNEL_COLUMNS.find(c => c.id === oldLead?.status)?.title;
+    const newStatusTitle = FUNNEL_COLUMNS.find(c => c.id === newStatus)?.title;
+
     setLeads(prev => prev.map(l => l.id === leadId ? { ...l, status: newStatus } : l));
-    
-    // API Call simulation
     await mockApi.updateLeadStatus(leadId, newStatus);
     
-    // Check automation rules (simulated logic)
+    // 2. Registra Atividade
+    if (oldLead && oldStatusTitle !== newStatusTitle) {
+        await handleNewActivity(
+            leadId, 
+            'STATUS_CHANGE', 
+            `Status alterado para "${newStatusTitle}" (era "${oldStatusTitle}").`
+        );
+    }
+    
     if (newStatus === 'docs_pending') {
        const rule = automations.find(a => a.id === 'auto_2');
        if (rule && rule.isActive) {
          showToast('Automação Disparada: Solicitando Documentos via WhatsApp', 'success');
+         // Registra Disparo de Automação
+         await handleNewActivity(
+            leadId,
+            'WHATSAPP_SENT',
+            'Robô enviou mensagem solicitando documentos (RG/CPF).'
+         );
        }
     }
   };
 
   const handleBulkSend = async () => {
-    await mockApi.sendBulkMessage(selectedLeadIds, selectedTemplate);
+    // Modo Batch (Visualmente) mas loop interno para registrar atividades
     setShowBulkModal(false);
-    showToast(`${selectedLeadIds.length} mensagens enviadas para fila de processamento!`, 'success');
+    showToast(`Enviando mensagens para ${selectedLeadIds.length} clientes...`, 'info');
+
+    const templateName = WHATSAPP_TEMPLATES.find(t => t.id === selectedTemplate)?.name || 'Modelo Desconhecido';
+
+    let count = 0;
+    for (const leadId of selectedLeadIds) {
+        // Simula envio
+        await mockApi.sendSingleMessage(leadId, selectedTemplate);
+        
+        // Registra Atividade
+        await handleNewActivity(
+            leadId,
+            'WHATSAPP_SENT',
+            `Mensagem em Massa enviada: "${templateName}"`
+        );
+        count++;
+    }
+    
+    showToast(`${count} mensagens enviadas e registradas com sucesso!`, 'success');
     setSelectedLeadIds([]);
+  };
+
+  // Função que aperta o botão do arquivo
+  const handleImportClick = () => {
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
+    }
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const res = await mockApi.uploadLeads(e.target.files[0]);
-      // ADICIONANDO OS NOVOS LEADS NA LISTA
       setLeads(prev => [...res.newLeads, ...prev]);
       showToast(`${res.added} leads importados e validados com sucesso!`, 'success');
       
-      // Checar automação de Boas Vindas
+      // Registrar atividades para cada novo lead importado
       const welcomeRule = automations.find(a => a.id === 'auto_1');
+      
+      res.newLeads.forEach(async (lead) => {
+          await handleNewActivity(lead.id, 'LEAD_IMPORTED', 'Lead importado via planilha (.csv/.xlsx).');
+          
+          if (welcomeRule && welcomeRule.isActive) {
+             await handleNewActivity(lead.id, 'WHATSAPP_SENT', 'Robô enviou Boas-vindas automaticamente.');
+          }
+      });
+
       if (welcomeRule && welcomeRule.isActive) {
         setTimeout(() => {
           showToast('Automação Disparada: Boas-vindas enviadas para novos leads!', 'success');
         }, 1500);
       }
     }
+    // Limpar o input para permitir selecionar o mesmo arquivo novamente se necessário
+    if (e.target) {
+        e.target.value = '';
+    }
   };
 
-  // Nova função para deletar leads
   const handleDeleteLead = (id: string) => {
     if (confirm('Tem certeza que deseja excluir este lead?')) {
       setLeads(prev => prev.filter(l => l.id !== id));
@@ -142,7 +209,49 @@ const App: React.FC = () => {
     }
   };
 
-  // Stats Calculation
+  // Funções da Oficina de Edição e Criação
+  const handleOpenEditModal = (lead: Lead | null) => {
+    setEditingLead(lead); // Se for null, o modal sabe que é um novo cadastro
+    setIsEditModalOpen(true);
+  };
+
+  const handleSaveEdit = async (updatedLead: Lead) => {
+    if (updatedLead.id) {
+      // 1. ATUALIZAÇÃO (Editar existente)
+      setLeads(prev => prev.map(l => l.id === updatedLead.id ? updatedLead : l));
+      await mockApi.updateLeadData(updatedLead);
+      showToast('Cliente atualizado com sucesso!', 'success');
+      
+      await handleNewActivity(
+        updatedLead.id,
+        'DATA_EDITED',
+        'Dados cadastrais atualizados manualmente.'
+      );
+
+    } else {
+      // 2. CRIAÇÃO (Novo Lead)
+      const newId = `manual_${Date.now()}`;
+      const newLead = { ...updatedLead, id: newId };
+      setLeads(prev => [newLead, ...prev]);
+      showToast('Novo cliente cadastrado com sucesso!', 'success');
+      
+      await handleNewActivity(newId, 'LEAD_IMPORTED', 'Novo lead cadastrado manualmente.');
+
+      // Verifica automação de boas-vindas
+      const welcomeRule = automations.find(a => a.id === 'auto_1');
+      if (welcomeRule && welcomeRule.isActive) {
+        setTimeout(() => {
+          showToast('Automação Disparada: Boas-vindas enviadas!', 'success');
+          handleNewActivity(newId, 'WHATSAPP_SENT', 'Robô enviou Boas-vindas automaticamente.');
+        }, 1000);
+      }
+    }
+    
+    // Fecha a oficina
+    setIsEditModalOpen(false);
+    setEditingLead(null);
+  };
+
   const stats = {
     total: leads.length,
     hot: leads.filter(l => l.status === 'proposal').length,
@@ -151,7 +260,7 @@ const App: React.FC = () => {
   };
 
   const chartData = FUNNEL_COLUMNS.map(col => ({
-    name: col.title.split(' ')[0], // Short name
+    name: col.title.split(' ')[0],
     count: leads.filter(l => l.status === col.id).length
   }));
 
@@ -164,7 +273,6 @@ const App: React.FC = () => {
     }
   };
 
-  // Função auxiliar para fechar menu ao clicar em um item (mobile)
   const handleNavClick = (view: ViewMode) => {
     setActiveView(view);
     setIsMobileMenuOpen(false);
@@ -181,7 +289,7 @@ const App: React.FC = () => {
         />
       )}
 
-      {/* Sidebar - Agora responsiva */}
+      {/* Sidebar */}
       <aside className={`
         fixed md:relative z-30 w-64 h-full bg-white border-r border-gray-200 flex flex-col shadow-sm transition-transform duration-300 ease-in-out
         ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
@@ -239,7 +347,6 @@ const App: React.FC = () => {
         {/* Header */}
         <header className="h-20 bg-white border-b border-gray-200 flex justify-between items-center px-4 md:px-8 shadow-sm">
           <div className="flex items-center gap-3">
-            {/* Botão Menu Mobile */}
             <button 
               onClick={() => setIsMobileMenuOpen(true)}
               className="md:hidden p-2 -ml-2 text-gray-600 hover:bg-gray-100 rounded-lg"
@@ -262,15 +369,39 @@ const App: React.FC = () => {
               </button>
             )}
 
+            {/* Botão de Importar com Controle Remoto */}
             {activeView === ViewMode.LEADS && (
-                <label className="flex items-center gap-2 border-2 border-dashed border-gray-300 hover:border-blue-500 hover:bg-blue-50 cursor-pointer px-3 md:px-4 py-2 rounded-xl text-xs md:text-sm font-bold text-gray-600 transition-all">
-                <Upload className="w-4 h-4" />
-                <span className="hidden md:inline">Importar Planilha</span>
-                <input type="file" className="hidden" accept=".csv,.xlsx" onChange={handleFileUpload} />
-                </label>
+                <>
+                  <input 
+                    type="file" 
+                    ref={fileInputRef}
+                    className="hidden" 
+                    accept=".csv,.xlsx" 
+                    onChange={handleFileUpload} 
+                  />
+                  <button 
+                    onClick={handleImportClick}
+                    className="flex items-center gap-2 border-2 border-dashed border-gray-300 hover:border-blue-500 hover:bg-blue-50 cursor-pointer px-3 md:px-4 py-2 rounded-xl text-xs md:text-sm font-bold text-gray-600 transition-all"
+                  >
+                    <Upload className="w-4 h-4" />
+                    <span className="hidden md:inline">Importar Planilha</span>
+                  </button>
+                </>
             )}
 
-            <button className="bg-blue-600 hover:bg-blue-700 text-white p-3 rounded-xl shadow-lg shadow-blue-200 transition-transform active:scale-95">
+            {/* Botão de Novo Cadastro (+) */}
+            <button 
+              onClick={() => {
+                // Se for na tela de Automações, cria uma regra de exemplo (mock)
+                if (activeView === ViewMode.AUTOMATION) {
+                    showToast('Para criar automações reais, configure a API.', 'info');
+                } else {
+                    // Se for Dashboard ou Leads, abre o modal de cadastro vazio
+                    handleOpenEditModal(null);
+                }
+              }}
+              className="bg-blue-600 hover:bg-blue-700 text-white p-3 rounded-xl shadow-lg shadow-blue-200 transition-transform active:scale-95"
+            >
               <Plus className="w-5 h-5" />
             </button>
           </div>
@@ -288,7 +419,6 @@ const App: React.FC = () => {
                     <StatsCard title="Conversão" value={stats.conversion} icon={LayoutDashboard} trend="-1%" trendUp={false} />
                 </div>
                 <div className="flex flex-col h-[calc(100vh-320px)]">
-                {/* Chart Section */}
                 <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm mb-6 h-64 flex-shrink-0 hidden md:block">
                     <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-4">Visão do Funil</h3>
                     <ResponsiveContainer width="100%" height="100%">
@@ -305,7 +435,6 @@ const App: React.FC = () => {
                     </ResponsiveContainer>
                 </div>
 
-                {/* Kanban Section */}
                 <div className="flex-1 min-h-0">
                     <div className="flex justify-between items-center mb-4">
                     <h3 className="text-lg font-bold text-gray-800">Pipeline de Vendas</h3>
@@ -318,7 +447,12 @@ const App: React.FC = () => {
           )}
 
           {activeView === ViewMode.LEADS && (
-            <LeadTable leads={leads} onSelectionChange={setSelectedLeadIds} onDeleteLead={handleDeleteLead} />
+            <LeadTable 
+              leads={leads} 
+              onSelectionChange={setSelectedLeadIds} 
+              onDeleteLead={handleDeleteLead}
+              onEditLead={handleOpenEditModal} // Ligando o fio aqui!
+            />
           )}
 
           {activeView === ViewMode.AUTOMATION && (
@@ -399,6 +533,15 @@ const App: React.FC = () => {
             </div>
           </div>
         )}
+
+        {/* Nossa Nova Oficina (Modal de Edição) + Histórico */}
+        <EditLeadModal 
+          lead={editingLead}
+          activities={activities} // Passando a rede de informações
+          isOpen={isEditModalOpen}
+          onClose={() => setIsEditModalOpen(false)}
+          onSave={handleSaveEdit}
+        />
 
       </main>
     </div>

@@ -1,3 +1,4 @@
+
 export type FunnelStatus = 'prospect' | 'docs_pending' | 'proposal' | 'closed' | 'lost';
 
 export interface Lead {
@@ -40,6 +41,22 @@ export interface AutomationRule {
   templateId: string;
   isActive: boolean;
   icon: 'user-plus' | 'file-text' | 'clock';
+}
+
+// Novos Tipos para o Histórico de Atividades (Rede de Informações)
+export type ActivityType = 
+    | 'STATUS_CHANGE'
+    | 'WHATSAPP_SENT'
+    | 'DATA_EDITED'
+    | 'LEAD_IMPORTED'
+    | 'NOTE_ADDED';
+
+export interface Activity {
+    id: string;
+    leadId: string;
+    type: ActivityType;
+    message: string;
+    timestamp: string;
 }
 
 export const FUNNEL_COLUMNS: FunnelColumn[] = [
