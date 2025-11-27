@@ -62,13 +62,34 @@ const App: React.FC = () => {
   };
 
   const handleToggleAutomation = async (id: string) => {
-    const updatedRule = await mockApi.toggleAutomation(id);
-    if (updatedRule) {
-      setAutomations(prev => prev.map(a => a.id === id ? updatedRule : a));
-      showToast(
-        updatedRule.isActive ? 'Automação ativada com sucesso!' : 'Automação desligada.', 
-        updatedRule.isActive ? 'success' : 'info'
-      );
+    // 1. Optimistic Update (Update UI Immediately)
+    setAutomations(prev => prev.map(a => {
+      if (a.id === id) {
+        return { ...a, isActive: !a.isActive };
+      }
+      return a;
+    }));
+
+    try {
+      // 2. API Call in background
+      const updatedRule = await mockApi.toggleAutomation(id);
+      
+      // 3. Confirm with Toast
+      if (updatedRule) {
+        showToast(
+          updatedRule.isActive ? 'Automação ativada com sucesso!' : 'Automação desligada.', 
+          updatedRule.isActive ? 'success' : 'info'
+        );
+      }
+    } catch (error) {
+      // Revert if error
+      setAutomations(prev => prev.map(a => {
+        if (a.id === id) {
+          return { ...a, isActive: !a.isActive };
+        }
+        return a;
+      }));
+      showToast('Erro ao alterar status da automação.', 'info');
     }
   };
 

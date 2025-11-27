@@ -44,7 +44,7 @@ export const AutomationView: React.FC<AutomationViewProps> = ({ rules, onToggle 
                 relative overflow-hidden rounded-2xl border-2 transition-all duration-300
                 ${rule.isActive 
                   ? 'border-green-500 bg-white shadow-lg scale-[1.01]' 
-                  : 'border-gray-200 bg-gray-50 opacity-80'
+                  : 'border-gray-200 bg-gray-50 opacity-90 hover:opacity-100'
                 }
               `}
             >
@@ -79,11 +79,21 @@ export const AutomationView: React.FC<AutomationViewProps> = ({ rules, onToggle 
                 </div>
 
                 {/* Botão Ligar/Desligar */}
-                <div className="flex flex-col items-center gap-2 min-w-[120px]">
+                <div 
+                  onClick={() => onToggle(rule.id)}
+                  className="flex flex-col items-center gap-2 min-w-[120px] cursor-pointer group"
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      onToggle(rule.id);
+                    }
+                  }}
+                >
                   <button 
-                    onClick={() => onToggle(rule.id)}
-                    className="transition-transform hover:scale-110 focus:outline-none"
+                    className="transition-transform group-hover:scale-110 focus:outline-none"
                     title={rule.isActive ? "Desligar Automação" : "Ligar Automação"}
+                    tabIndex={-1} // Handled by parent div
                   >
                     {rule.isActive ? (
                       <ToggleRight className="w-16 h-16 text-green-500" />
@@ -91,7 +101,7 @@ export const AutomationView: React.FC<AutomationViewProps> = ({ rules, onToggle 
                       <ToggleLeft className="w-16 h-16 text-gray-300" />
                     )}
                   </button>
-                  <span className={`font-bold text-sm ${rule.isActive ? 'text-green-600' : 'text-gray-400'}`}>
+                  <span className={`font-bold text-sm select-none ${rule.isActive ? 'text-green-600' : 'text-gray-400'}`}>
                     {rule.isActive ? 'LIGADO' : 'DESLIGADO'}
                   </span>
                 </div>
