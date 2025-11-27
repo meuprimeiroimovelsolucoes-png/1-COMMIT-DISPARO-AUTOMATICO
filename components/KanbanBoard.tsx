@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { Lead, FunnelColumn, FUNNEL_COLUMNS, FunnelStatus } from '../types';
-import { MessageCircle, MoreVertical, Clock, DollarSign } from 'lucide-react';
+import { Lead, FUNNEL_COLUMNS, FunnelStatus } from '../types';
+import { MessageCircle, MoreVertical, Clock } from 'lucide-react';
 
 interface KanbanBoardProps {
   leads: Lead[];

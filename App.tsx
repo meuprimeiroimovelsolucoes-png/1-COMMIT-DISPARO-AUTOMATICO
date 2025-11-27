@@ -3,7 +3,6 @@ import {
   LayoutDashboard, 
   Users, 
   MessageSquare, 
-  Settings, 
   LogOut, 
   Plus, 
   Upload, 
@@ -322,7 +321,11 @@ const App: React.FC = () => {
                 <label className="block text-sm font-bold text-gray-700 mb-3 uppercase tracking-wider">Escolha a Mensagem</label>
                 <div className="space-y-4">
                   {WHATSAPP_TEMPLATES.map((t) => (
-                    <label key={t.id} className={`block p-4 md:p-5 rounded-xl border-2 cursor-pointer transition-all ${selectedTemplate === t.id ? 'border-green-500 bg-green-50/50' : 'border-gray-100 hover:border-blue-200'}`}>
+                    <label 
+                      key={t.id} 
+                      onClick={() => setSelectedTemplate(t.id)}
+                      className={`block p-4 md:p-5 rounded-xl border-2 cursor-pointer transition-all ${selectedTemplate === t.id ? 'border-green-500 bg-green-50/50' : 'border-gray-100 hover:border-blue-200'}`}
+                    >
                       <div className="flex items-center gap-4">
                         <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${selectedTemplate === t.id ? 'border-green-500' : 'border-gray-300'}`}>
                             {selectedTemplate === t.id && <div className="w-2.5 h-2.5 rounded-full bg-green-500" />}

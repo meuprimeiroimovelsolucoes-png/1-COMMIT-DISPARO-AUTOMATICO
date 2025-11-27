@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Lead, FUNNEL_COLUMNS } from '../types';
-import { Search, MessageSquare, Filter, MoreHorizontal } from 'lucide-react';
+import { Search, Filter, MoreHorizontal } from 'lucide-react';
 
 interface LeadTableProps {
   leads: Lead[];

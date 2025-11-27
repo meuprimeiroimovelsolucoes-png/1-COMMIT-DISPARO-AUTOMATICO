@@ -1,4 +1,4 @@
-import { Lead, FunnelStatus, InteractionHistory, AutomationRule } from "../types";
+import { Lead, FunnelStatus, AutomationRule } from "../types";
 
 // Initial Mock Data
 const INITIAL_LEADS: Lead[] = [
