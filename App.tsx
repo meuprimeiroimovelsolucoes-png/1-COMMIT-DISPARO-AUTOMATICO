@@ -11,7 +11,9 @@ import {
   Send,
   CheckCircle,
   X,
-  Menu
+  Menu,
+  Settings,
+  Smartphone
 } from 'lucide-react';
 import { 
   BarChart, 
@@ -33,6 +35,7 @@ import { StatsCard } from './components/StatsCard';
 import { AutomationView } from './components/AutomationView';
 import { EditLeadModal } from './components/EditLeadModal';
 import { CreateAutomationModal } from './components/CreateAutomationModal';
+import { SettingsModal } from './components/SettingsModal';
 
 enum ViewMode {
   DASHBOARD = 'dashboard',
@@ -44,35 +47,52 @@ const App: React.FC = () => {
   const [activeView, setActiveView] = useState<ViewMode>(ViewMode.DASHBOARD);
   const [leads, setLeads] = useState<Lead[]>([]);
   const [automations, setAutomations] = useState<AutomationRule[]>([]);
-  const [activities, setActivities] = useState<Activity[]>([]); // Novo Estado Global de Atividades
+  const [activities, setActivities] = useState<Activity[]>([]); 
   const [selectedLeadIds, setSelectedLeadIds] = useState<string[]>([]);
   const [showBulkModal, setShowBulkModal] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState(WHATSAPP_TEMPLATES[0].id);
   const [notification, setNotification] = useState<{message: string, type: 'success' | 'info'} | null>(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [connectedPhone, setConnectedPhone] = useState<string>('');
 
-  // Estados da Oficina de Edição (Modal Leads)
+  // Estados dos Modais
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingLead, setEditingLead] = useState<Lead | null>(null);
-
-  // Estados da Fábrica de Robôs (Modal Automação)
   const [isAutomationModalOpen, setIsAutomationModalOpen] = useState(false);
+  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false); // Novo Modal de Settings
 
-  // O Controle Remoto para o arquivo
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     mockApi.getLeads().then(setLeads);
     mockApi.getAutomations().then(setAutomations);
-    mockApi.getActivities().then(setActivities); // Carrega histórico inicial
-  }, []);
+    mockApi.getActivities().then(setActivities);
+    
+    // Check for first time setup
+    const simMode = localStorage.getItem('whatsapp_simulation_mode');
+    if (simMode === null) {
+        localStorage.setItem('whatsapp_simulation_mode', 'true');
+    }
+    
+    // Carregar número salvo
+    const phone = localStorage.getItem('whatsapp_phone');
+    if (phone) setConnectedPhone(phone);
+    
+    // Ouvir mudanças nas configurações
+    const handleStorageChange = () => {
+        const newPhone = localStorage.getItem('whatsapp_phone');
+        if (newPhone) setConnectedPhone(newPhone);
+    };
+    window.addEventListener('storage', handleStorageChange);
+    
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, [isSettingsModalOpen]); // Recarrega quando fecha o modal
 
   const showToast = (message: string, type: 'success' | 'info' = 'info') => {
     setNotification({ message, type });
     setTimeout(() => setNotification(null), 4000);
   };
 
-  // --- FUNÇÃO CENTRAL DE REGISTRO DE ATIVIDADES ---
   const handleNewActivity = async (leadId: string, type: ActivityType, message: string) => {
     try {
         const newActivity = await mockApi.registerActivity({
@@ -121,7 +141,6 @@ const App: React.FC = () => {
   };
 
   const handleStatusChange = async (leadId: string, newStatus: FunnelStatus) => {
-    // 1. Snapshot do estado anterior para o histórico
     const oldLead = leads.find(l => l.id === leadId);
     const oldStatusTitle = FUNNEL_COLUMNS.find(c => c.id === oldLead?.status)?.title;
     const newStatusTitle = FUNNEL_COLUMNS.find(c => c.id === newStatus)?.title;
@@ -129,7 +148,6 @@ const App: React.FC = () => {
     setLeads(prev => prev.map(l => l.id === leadId ? { ...l, status: newStatus } : l));
     await mockApi.updateLeadStatus(leadId, newStatus);
     
-    // 2. Registra Atividade
     if (oldLead && oldStatusTitle !== newStatusTitle) {
         await handleNewActivity(
             leadId, 
@@ -142,7 +160,6 @@ const App: React.FC = () => {
        const rule = automations.find(a => a.id === 'auto_2' || a.triggerName.includes('Mudança de Status'));
        if (rule && rule.isActive) {
          showToast(`Automação Disparada: ${rule.actionName}`, 'success');
-         // Registra Disparo de Automação
          await handleNewActivity(
             leadId,
             'WHATSAPP_SENT',
@@ -152,8 +169,26 @@ const App: React.FC = () => {
     }
   };
 
+  const checkWhatsAppConfig = () => {
+    const simMode = localStorage.getItem('whatsapp_simulation_mode');
+    const apiKey = localStorage.getItem('whatsapp_api_key');
+    
+    if (simMode === 'true') return true;
+    if (apiKey && apiKey.length > 5) return true;
+    
+    return false;
+  };
+
+  const handleBulkSendClick = () => {
+      if (!checkWhatsAppConfig()) {
+          showToast('Configure o WhatsApp primeiro (Ícone de Engrenagem)', 'info');
+          setIsSettingsModalOpen(true);
+          return;
+      }
+      setShowBulkModal(true);
+  };
+
   const handleBulkSend = async () => {
-    // Modo Batch (Visualmente) mas loop interno para registrar atividades
     setShowBulkModal(false);
     showToast(`Enviando mensagens para ${selectedLeadIds.length} clientes...`, 'info');
 
@@ -161,10 +196,7 @@ const App: React.FC = () => {
 
     let count = 0;
     for (const leadId of selectedLeadIds) {
-        // Simula envio
         await mockApi.sendSingleMessage(leadId, selectedTemplate);
-        
-        // Registra Atividade
         await handleNewActivity(
             leadId,
             'WHATSAPP_SENT',
@@ -177,7 +209,6 @@ const App: React.FC = () => {
     setSelectedLeadIds([]);
   };
 
-  // Função que aperta o botão do arquivo
   const handleImportClick = () => {
     if (fileInputRef.current) {
       fileInputRef.current.click();
@@ -190,8 +221,6 @@ const App: React.FC = () => {
       setLeads(prev => [...res.newLeads, ...prev]);
       showToast(`${res.added} leads importados e validados com sucesso!`, 'success');
       
-      // Registrar atividades para cada novo lead importado
-      // Procura por regras de "Novo Lead" ou "user-plus"
       const welcomeRules = automations.filter(a => a.isActive && (a.id === 'auto_1' || a.icon === 'user-plus'));
       
       res.newLeads.forEach(async (lead) => {
@@ -208,7 +237,6 @@ const App: React.FC = () => {
         }, 1500);
       }
     }
-    // Limpar o input para permitir selecionar o mesmo arquivo novamente se necessário
     if (e.target) {
         e.target.value = '';
     }
@@ -221,15 +249,13 @@ const App: React.FC = () => {
     }
   };
 
-  // Funções da Oficina de Edição e Criação
   const handleOpenEditModal = (lead: Lead | null) => {
-    setEditingLead(lead); // Se for null, o modal sabe que é um novo cadastro
+    setEditingLead(lead); 
     setIsEditModalOpen(true);
   };
 
   const handleSaveEdit = async (updatedLead: Lead) => {
     if (updatedLead.id) {
-      // 1. ATUALIZAÇÃO (Editar existente)
       setLeads(prev => prev.map(l => l.id === updatedLead.id ? updatedLead : l));
       await mockApi.updateLeadData(updatedLead);
       showToast('Cliente atualizado com sucesso!', 'success');
@@ -241,7 +267,6 @@ const App: React.FC = () => {
       );
 
     } else {
-      // 2. CRIAÇÃO (Novo Lead)
       const newId = `manual_${Date.now()}`;
       const newLead = { ...updatedLead, id: newId };
       setLeads(prev => [newLead, ...prev]);
@@ -249,7 +274,6 @@ const App: React.FC = () => {
       
       await handleNewActivity(newId, 'LEAD_IMPORTED', 'Novo lead cadastrado manualmente.');
 
-      // Verifica automação de boas-vindas
       const welcomeRules = automations.filter(a => a.isActive && (a.id === 'auto_1' || a.icon === 'user-plus'));
       if (welcomeRules.length > 0) {
         setTimeout(() => {
@@ -259,7 +283,6 @@ const App: React.FC = () => {
       }
     }
     
-    // Fecha a oficina
     setIsEditModalOpen(false);
     setEditingLead(null);
   };
@@ -345,7 +368,27 @@ const App: React.FC = () => {
           </button>
         </nav>
 
-        <div className="p-4 border-t border-gray-100">
+        <div className="p-4 border-t border-gray-100 space-y-2">
+          {/* Status do WhatsApp */}
+          {connectedPhone && (
+            <div className="mb-2 px-4 py-2 bg-green-50 rounded-lg flex items-center gap-2 border border-green-100">
+                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                <div className="flex flex-col overflow-hidden">
+                    <span className="text-[10px] uppercase font-bold text-green-600">Conectado</span>
+                    <span className="text-xs text-green-800 font-mono truncate">{connectedPhone}</span>
+                </div>
+            </div>
+          )}
+
+          {/* Botão de Configurações */}
+          <button 
+             onClick={() => setIsSettingsModalOpen(true)}
+             className="flex items-center gap-3 w-full px-4 py-3 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-100"
+          >
+             <Settings className="w-5 h-5" />
+             Configurar WhatsApp
+          </button>
+          
           <button className="flex items-center gap-3 w-full px-4 py-3 rounded-lg text-sm font-medium text-red-600 hover:bg-red-50">
             <LogOut className="w-5 h-5" />
             Sair do Sistema
@@ -373,7 +416,7 @@ const App: React.FC = () => {
           <div className="flex items-center gap-2 md:gap-4">
             {activeView === ViewMode.LEADS && selectedLeadIds.length > 0 && (
               <button 
-                onClick={() => setShowBulkModal(true)}
+                onClick={handleBulkSendClick}
                 className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-3 md:px-6 py-2.5 rounded-xl text-xs md:text-sm font-bold transition-colors animate-pulse shadow-green-200 shadow-lg"
               >
                 <Send className="w-4 h-4" />
@@ -381,7 +424,6 @@ const App: React.FC = () => {
               </button>
             )}
 
-            {/* Botão de Importar com Controle Remoto */}
             {activeView === ViewMode.LEADS && (
                 <>
                   <input 
@@ -401,14 +443,11 @@ const App: React.FC = () => {
                 </>
             )}
 
-            {/* Botão de Novo Cadastro (+) */}
             <button 
               onClick={() => {
-                // Se for na tela de Automações, abre a Fábrica de Robôs
                 if (activeView === ViewMode.AUTOMATION) {
                     setIsAutomationModalOpen(true);
                 } else {
-                    // Se for Dashboard ou Leads, abre o modal de cadastro vazio (Pessoa)
                     handleOpenEditModal(null);
                 }
               }}
@@ -546,7 +585,6 @@ const App: React.FC = () => {
           </div>
         )}
 
-        {/* Modal: Oficina de Leads */}
         <EditLeadModal 
           lead={editingLead}
           activities={activities}
@@ -555,11 +593,16 @@ const App: React.FC = () => {
           onSave={handleSaveEdit}
         />
 
-        {/* Modal: Fábrica de Robôs (Novo) */}
         <CreateAutomationModal 
           isOpen={isAutomationModalOpen}
           onClose={() => setIsAutomationModalOpen(false)}
           onSave={handleCreateAutomation}
+        />
+
+        {/* Novo Modal de Configurações (O Cofre) */}
+        <SettingsModal 
+          isOpen={isSettingsModalOpen}
+          onClose={() => setIsSettingsModalOpen(false)}
         />
 
       </main>
