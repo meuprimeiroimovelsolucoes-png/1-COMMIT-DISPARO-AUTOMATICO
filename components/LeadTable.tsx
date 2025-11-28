@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Lead, FUNNEL_COLUMNS } from '../types';
 import { Search, Filter, MoreHorizontal, Trash2, Edit, X } from 'lucide-react';
@@ -29,17 +30,6 @@ export const LeadTable: React.FC<LeadTableProps> = ({ leads, onSelectionChange, 
     onSelectionChange(Array.from(newSelected));
   };
 
-  const toggleSelectAll = () => {
-    if (selectedIds.size === leads.length) {
-      setSelectedIds(new Set());
-      onSelectionChange([]);
-    } else {
-      const allIds = new Set(leads.map(l => l.id));
-      setSelectedIds(allIds);
-      onSelectionChange(Array.from(allIds));
-    }
-  };
-
   const getStatusLabel = (statusId: string) => {
     const col = FUNNEL_COLUMNS.find(c => c.id === statusId);
     return col ? (
@@ -49,6 +39,7 @@ export const LeadTable: React.FC<LeadTableProps> = ({ leads, onSelectionChange, 
     ) : statusId;
   };
 
+  // Filtragem dos leads
   const filteredLeads = leads.filter(l => {
     const matchesSearch = l.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
                           l.whatsapp.includes(searchTerm);
@@ -56,6 +47,28 @@ export const LeadTable: React.FC<LeadTableProps> = ({ leads, onSelectionChange, 
     
     return matchesSearch && matchesFilter;
   });
+
+  // Lógica corrigida para selecionar apenas os visíveis/filtrados
+  const toggleSelectAll = () => {
+    const visibleIds = filteredLeads.map(l => l.id);
+    const allVisibleSelected = visibleIds.every(id => selectedIds.has(id));
+
+    if (allVisibleSelected) {
+      // Se todos os visíveis estão selecionados, desseleciona eles
+      const newSelected = new Set(selectedIds);
+      visibleIds.forEach(id => newSelected.delete(id));
+      setSelectedIds(newSelected);
+      onSelectionChange(Array.from(newSelected));
+    } else {
+      // Caso contrário, seleciona todos os visíveis
+      const newSelected = new Set(selectedIds);
+      visibleIds.forEach(id => newSelected.add(id));
+      setSelectedIds(newSelected);
+      onSelectionChange(Array.from(newSelected));
+    }
+  };
+
+  const isAllVisibleSelected = filteredLeads.length > 0 && filteredLeads.every(l => selectedIds.has(l.id));
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-visible min-h-[500px] flex flex-col">
@@ -112,7 +125,7 @@ export const LeadTable: React.FC<LeadTableProps> = ({ leads, onSelectionChange, 
         </div>
       </div>
 
-      {/* Adicionei pb-32 para dar espaço extra no final da tabela para os menus não serem cortados */}
+      {/* Tabela */}
       <div className="overflow-x-auto flex-1 pb-32">
         <table className="w-full text-left text-sm text-gray-600">
           <thead className="bg-gray-50 text-gray-700 font-medium">
@@ -121,7 +134,7 @@ export const LeadTable: React.FC<LeadTableProps> = ({ leads, onSelectionChange, 
                 <input 
                   type="checkbox" 
                   className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                  checked={selectedIds.size === leads.length && leads.length > 0}
+                  checked={isAllVisibleSelected}
                   onChange={toggleSelectAll}
                 />
               </th>
@@ -171,7 +184,7 @@ export const LeadTable: React.FC<LeadTableProps> = ({ leads, onSelectionChange, 
                     <MoreHorizontal className="w-4 h-4" />
                   </button>
 
-                  {/* Menu de Ações (Editar/Excluir) */}
+                  {/* Menu de Ações */}
                   {activeMenuLeadId === lead.id && (
                     <>
                       <div className="fixed inset-0 z-10 cursor-default" onClick={() => setActiveMenuLeadId(null)}></div>

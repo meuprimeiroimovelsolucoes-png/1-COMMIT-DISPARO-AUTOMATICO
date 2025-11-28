@@ -59,7 +59,7 @@ const App: React.FC = () => {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingLead, setEditingLead] = useState<Lead | null>(null);
   const [isAutomationModalOpen, setIsAutomationModalOpen] = useState(false);
-  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false); // Novo Modal de Settings
+  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false); 
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -86,7 +86,7 @@ const App: React.FC = () => {
     window.addEventListener('storage', handleStorageChange);
     
     return () => window.removeEventListener('storage', handleStorageChange);
-  }, [isSettingsModalOpen]); // Recarrega quando fecha o modal
+  }, [isSettingsModalOpen]);
 
   const showToast = (message: string, type: 'success' | 'info' = 'info') => {
     setNotification({ message, type });
@@ -156,16 +156,19 @@ const App: React.FC = () => {
         );
     }
     
-    if (newStatus === 'docs_pending') {
-       const rule = automations.find(a => a.id === 'auto_2' || a.triggerName.includes('Mudança de Status'));
-       if (rule && rule.isActive) {
+    // GATILHO: Mudança de Status
+    // Verifica todas as automações ativas que têm esse gatilho
+    const statusRules = automations.filter(a => a.isActive && (a.triggerName === 'Mudança de Status' || a.triggerName === 'Mover para "Doc. Pendente"'));
+    
+    if (newStatus === 'docs_pending' && statusRules.length > 0) {
+       statusRules.forEach(async (rule) => {
          showToast(`Automação Disparada: ${rule.actionName}`, 'success');
          await handleNewActivity(
             leadId,
             'WHATSAPP_SENT',
             `Robô executou: ${rule.actionName}`
          );
-       }
+       });
     }
   };
 
@@ -221,7 +224,9 @@ const App: React.FC = () => {
       setLeads(prev => [...res.newLeads, ...prev]);
       showToast(`${res.added} leads importados e validados com sucesso!`, 'success');
       
-      const welcomeRules = automations.filter(a => a.isActive && (a.id === 'auto_1' || a.icon === 'user-plus'));
+      // GATILHO: Novo Lead
+      // Procura por regras que tenham o gatilho "Novo Lead Chegou" (padronizado)
+      const welcomeRules = automations.filter(a => a.isActive && a.triggerName === 'Novo Lead Chegou');
       
       res.newLeads.forEach(async (lead) => {
           await handleNewActivity(lead.id, 'LEAD_IMPORTED', 'Lead importado via planilha (.csv/.xlsx).');
@@ -270,15 +275,22 @@ const App: React.FC = () => {
       const newId = `manual_${Date.now()}`;
       const newLead = { ...updatedLead, id: newId };
       setLeads(prev => [newLead, ...prev]);
+      // Chama o updateLeadData para persistir no mock, mesmo sendo novo
+      await mockApi.updateLeadData(newLead);
       showToast('Novo cliente cadastrado com sucesso!', 'success');
       
       await handleNewActivity(newId, 'LEAD_IMPORTED', 'Novo lead cadastrado manualmente.');
 
-      const welcomeRules = automations.filter(a => a.isActive && (a.id === 'auto_1' || a.icon === 'user-plus'));
+      // GATILHO: Novo Lead (Manual)
+      const welcomeRules = automations.filter(a => a.isActive && a.triggerName === 'Novo Lead Chegou');
+      
+      welcomeRules.forEach(async (rule) => {
+           await handleNewActivity(newId, 'WHATSAPP_SENT', `Robô (${rule.triggerName}) enviou mensagem.`);
+      });
+
       if (welcomeRules.length > 0) {
         setTimeout(() => {
           showToast('Automação Disparada: Boas-vindas enviadas!', 'success');
-          handleNewActivity(newId, 'WHATSAPP_SENT', 'Robô enviou Boas-vindas automaticamente.');
         }, 1000);
       }
     }

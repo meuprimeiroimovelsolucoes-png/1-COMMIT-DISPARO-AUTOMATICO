@@ -101,6 +101,9 @@ export const mockApi = {
       const index = INITIAL_LEADS.findIndex(l => l.id === updatedLead.id);
       if (index !== -1) {
         INITIAL_LEADS[index] = updatedLead;
+      } else {
+        // Se não achar (Lead Novo Manual), adiciona na lista
+        INITIAL_LEADS.unshift(updatedLead);
       }
       setTimeout(() => resolve(updatedLead), 400);
     });
