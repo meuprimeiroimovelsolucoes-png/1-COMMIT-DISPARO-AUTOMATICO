@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Lead, FUNNEL_COLUMNS, FunnelStatus } from '../types';
 import { MessageCircle, MoreVertical, Clock } from 'lucide-react';
@@ -5,9 +6,10 @@ import { MessageCircle, MoreVertical, Clock } from 'lucide-react';
 interface KanbanBoardProps {
   leads: Lead[];
   onStatusChange: (leadId: string, newStatus: FunnelStatus) => void;
+  onWhatsAppClick?: (lead: Lead) => void; // Nova Prop
 }
 
-export const KanbanBoard: React.FC<KanbanBoardProps> = ({ leads, onStatusChange }) => {
+export const KanbanBoard: React.FC<KanbanBoardProps> = ({ leads, onStatusChange, onWhatsAppClick }) => {
   const [draggedLeadId, setDraggedLeadId] = useState<string | null>(null);
 
   const handleDragStart = (e: React.DragEvent, leadId: string) => {
@@ -81,6 +83,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ leads, onStatusChange 
                       </div>
                     </div>
                     <button 
+                      onClick={() => onWhatsAppClick && onWhatsAppClick(lead)}
                       className="text-green-600 hover:bg-green-50 p-1.5 rounded-full transition-colors"
                       title="Abrir WhatsApp"
                     >

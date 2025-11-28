@@ -1,16 +1,17 @@
 
 import React, { useState } from 'react';
 import { Lead, FUNNEL_COLUMNS } from '../types';
-import { Search, Filter, MoreHorizontal, Trash2, Edit, X } from 'lucide-react';
+import { Search, Filter, MoreHorizontal, Trash2, Edit, X, MessageCircle } from 'lucide-react';
 
 interface LeadTableProps {
   leads: Lead[];
   onSelectionChange: (selectedIds: string[]) => void;
   onDeleteLead?: (id: string) => void;
   onEditLead?: (lead: Lead) => void;
+  onWhatsAppClick?: (lead: Lead) => void; // Nova Prop
 }
 
-export const LeadTable: React.FC<LeadTableProps> = ({ leads, onSelectionChange, onDeleteLead, onEditLead }) => {
+export const LeadTable: React.FC<LeadTableProps> = ({ leads, onSelectionChange, onDeleteLead, onEditLead, onWhatsAppClick }) => {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [searchTerm, setSearchTerm] = useState('');
   
@@ -176,7 +177,16 @@ export const LeadTable: React.FC<LeadTableProps> = ({ leads, onSelectionChange, 
                 <td className="px-6 py-4 text-xs">
                   {new Date(lead.lastInteraction).toLocaleDateString()}
                 </td>
-                <td className="px-6 py-4 text-right relative">
+                <td className="px-6 py-4 text-right relative flex items-center justify-end gap-2">
+                  {/* Botão de WhatsApp Manual */}
+                  <button
+                    onClick={() => onWhatsAppClick && onWhatsAppClick(lead)}
+                    className="text-green-600 hover:bg-green-50 p-2 rounded-full transition-colors border border-transparent hover:border-green-100"
+                    title="Abrir WhatsApp Web"
+                  >
+                     <MessageCircle className="w-5 h-5" />
+                  </button>
+
                   <button 
                     onClick={() => setActiveMenuLeadId(activeMenuLeadId === lead.id ? null : lead.id)}
                     className={`p-2 rounded-full transition-colors ${activeMenuLeadId === lead.id ? 'bg-blue-100 text-blue-600' : 'hover:bg-gray-100 text-gray-400 hover:text-gray-600'}`}

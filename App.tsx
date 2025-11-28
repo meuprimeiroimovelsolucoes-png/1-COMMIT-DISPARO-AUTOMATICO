@@ -174,18 +174,49 @@ const App: React.FC = () => {
 
   const checkWhatsAppConfig = () => {
     const simMode = localStorage.getItem('whatsapp_simulation_mode');
+    const apiEndpoint = localStorage.getItem('whatsapp_api_endpoint'); // Check generic URL
     const apiKey = localStorage.getItem('whatsapp_api_key');
     
+    // Se estiver em modo simulação, permite o "envio" (fake)
     if (simMode === 'true') return true;
+    
+    // Se tiver URL configurada (para Evolution/Z-API/etc), permite
+    if (apiEndpoint && apiEndpoint.length > 5) return true;
+
+    // Fallback para chave antiga
     if (apiKey && apiKey.length > 5) return true;
     
     return false;
   };
 
+  // --- MODO MANUAL: Função Mágica para Abrir WhatsApp ---
+  const handleOpenWhatsApp = (lead: Lead) => {
+      // 1. Limpa o número (deixa só digitos)
+      const cleanPhone = lead.whatsapp.replace(/\D/g, '');
+      
+      // 2. Define a mensagem padrão
+      const message = `Olá ${lead.name.split(' ')[0]}, tudo bem? Vi seu interesse no imóvel.`;
+      const encodedMessage = encodeURIComponent(message);
+      
+      // 3. Monta o link oficial do WhatsApp
+      const url = `https://wa.me/${cleanPhone}?text=${encodedMessage}`;
+      
+      // 4. Abre em nova aba
+      window.open(url, '_blank');
+      
+      // 5. Registra no histórico
+      handleNewActivity(
+          lead.id,
+          'WHATSAPP_SENT',
+          'WhatsApp Web aberto manualmente (Conversa iniciada).'
+      );
+  };
+
   const handleBulkSendClick = () => {
       if (!checkWhatsAppConfig()) {
-          showToast('Configure o WhatsApp primeiro (Ícone de Engrenagem)', 'info');
-          setIsSettingsModalOpen(true);
+          // Se não tem API configurada, sugere o modo manual
+          showToast('Modo Manual: Clique nos ícones verdes na lista para enviar um por um.', 'info');
+          // Não abre o modal de disparo em massa pois ele requer API para ser útil
           return;
       }
       setShowBulkModal(true);
@@ -503,7 +534,8 @@ const App: React.FC = () => {
                     <h3 className="text-lg font-bold text-gray-800">Pipeline de Vendas</h3>
                     <div className="text-sm font-medium text-gray-400 bg-gray-100 px-3 py-1 rounded-full text-xs">Arraste os cards</div>
                     </div>
-                    <KanbanBoard leads={leads} onStatusChange={handleStatusChange} />
+                    {/* Passando a função de WhatsApp Manual para o Kanban */}
+                    <KanbanBoard leads={leads} onStatusChange={handleStatusChange} onWhatsAppClick={handleOpenWhatsApp} />
                 </div>
                 </div>
             </>
@@ -515,6 +547,7 @@ const App: React.FC = () => {
               onSelectionChange={setSelectedLeadIds} 
               onDeleteLead={handleDeleteLead}
               onEditLead={handleOpenEditModal}
+              onWhatsAppClick={handleOpenWhatsApp}
             />
           )}
 
